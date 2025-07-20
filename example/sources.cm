@@ -1,0 +1,9 @@
+Library
+    signature ABT 
+    structure Abt 
+    structure TestAbt 
+is
+    $/basis.cm
+    ../src/sources.cm
+
+    testabt.sml

@@ -1,4 +1,12 @@
-Group is
+Library
+  structure Abt
+  signature ABT
+is
   ../../cmlib/cmlib.cm
+  $/ml-lpt-lib.cm
+
+  AbtRep.sml
+  Abt.lex : ml-ulex
+  Abt.grm : ml-antlr
 
   Abt.sml

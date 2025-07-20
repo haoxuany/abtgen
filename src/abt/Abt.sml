@@ -24,22 +24,21 @@ signature ABT = sig
   | List of param list
   | Option of param option
 
-  val print_abt : TextIO.outstream -> abt -> unit
+  val print : TextIO.outstream -> abt -> unit
+  
+  type stream
+  exception ParseError of string
+
+  val streamifyInstream : TextIO.instream -> stream 
+  val streamifyString : (unit -> string) -> stream
+
+  val parse : stream -> (abt * stream)
+  val parseString : (unit -> string) -> abt 
+  val parseInstream : TextIO.instream -> abt
 end
 
-structure Abt : ABT = struct
-  
-  type var = string
-
-  datatype abt =
-    Op of string * param list
-  | Var of var
-  and param =
-    String of string
-  | Abt of abt
-  | Bind of var * abt
-  | List of param list
-  | Option of param option
+structure Abt : ABT = struct 
+  open AbtRep
 
   local
     open PrettyPrint
@@ -51,9 +50,15 @@ structure Abt : ABT = struct
         (
           openBox stream Consistent 2;
           print stream name;
-          print stream "(";
-          printparams params stream;
-          print stream ")";
+          (
+            case params of 
+              nil => ()
+            | _ => (
+              print stream "(";
+              printparams params stream;
+              print stream ")"
+            )
+          );
           closeBox stream
         )
       | Var v => print stream v
@@ -61,13 +66,12 @@ structure Abt : ABT = struct
         case l of
            nil => ()
         | [one] =>
-            ( printparam one stream;
-              break stream 1
-            )
+            ( printparam one stream )
         | h :: tail =>
             ( printparam h stream;
               print stream ",";
-              break stream 1
+              break stream 1;
+              printparams tail stream
             )
       and printparam (t : param) stream =
         case t of
@@ -96,9 +100,51 @@ structure Abt : ABT = struct
               | SOME p => printparam p stream
             )
 
-    val print_abt =
+    val print =
       fn stream => fn abt =>
-        printabt abt (makeStream stream 80)
+      let 
+        val stream = makeStream stream 80
+      in
+        (printabt abt stream; flush stream)
+      end
+
   end
 
+  structure Parse = AbtParseFn(AbtLex)
+
+  type stream = AbtLex.strm
+
+  val streamifyInstream = AbtLex.streamifyInstream
+  val streamifyString = AbtLex.streamify
+
+  exception ParseError of string
+
+  local open AbtTokens in
+    fun quote s = String.concat ["\"" , s , "\""]
+    fun tokenToString tok =
+      case tok of
+        Name s => quote s 
+      | Var s => quote s 
+      | String s => quote s 
+      | _ => AbtTokens.toString tok
+  end
+
+
+  fun parse strm =
+    let 
+      val sm = AntlrStreamPos.mkSourcemap ()
+      val lex = AbtLex.lex sm 
+      val (result , strm , errors) = Parse.parse lex strm 
+    in 
+      case errors of
+        nil => (Option.valOf result , strm)
+      | _ =>
+          raise ParseError
+          (String.concatWith "\n"
+          (List.map (AntlrRepair.repairToString tokenToString sm)
+          errors))
+    end
+
+  fun parseString s = #1 (parse (streamifyString s))
+  fun parseInstream s = #1 (parse (streamifyInstream s))
 end

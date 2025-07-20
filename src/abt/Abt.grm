@@ -1,0 +1,34 @@
+%name Abt;
+
+%tokens
+  : Name of string
+  | LParen ("(")
+  | RParen (")")
+  | Comma (",")
+  | Var of string
+
+  | String of string
+  | Dot (".")
+  | LSqBrac ("[")
+  | RSqBrac ("]")
+  | None
+  ;
+
+operator
+  : Name "(" paramlist ")" => ( AbtRep.Op ( Name , paramlist ) )
+  | Name => ( AbtRep.Op ( Name , [] ) )
+  | Var => ( AbtRep.Var Var )
+  ;
+
+paramlist
+  : => ( [] )
+  | head=param tail=("," param)* (",")? => ( head :: tail )
+  ;
+
+param
+  : s=String => ( AbtRep.String s )
+  | Var "." operator => ( AbtRep.Bind ( Var , operator ) )
+  | operator => ( AbtRep.Abt operator )
+  | "[" paramlist "]" => ( AbtRep.List paramlist )
+  | None => ( AbtRep.Option NONE )
+  ;
