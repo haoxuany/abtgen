@@ -1,2 +1,4 @@
 Group is
-  $/basis.cm
+  ../../cmlib/cmlib.cm
+
+  Abt.sml
